@@ -1,1 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Tester Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para la barra de desplazamiento */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .status-off {
+            background-color: #ef4444; /* red-500 */
+        }
+        .status-on {
+            background-color: #22c55e; /* green-500 */
+        }
+        .status-idle {
+            background-color: #eab308; /* yellow-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex flex-col h-screen overflow-hidden">
+
+    <!-- Encabezado -->
+    <header class="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 p-4 shadow-lg">
+        <h1 class="text-2xl font-bold text-center text-white flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-cyan-400"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+            <span>Web Tester Bot AI</span>
+        </h1>
+    </header>
+
+    <!-- Contenido Principal -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Panel de Control (Izquierda) -->
+        <aside class="w-full md:w-1/3 lg:w-1/4 bg-gray-800 p-6 overflow-y-auto flex flex-col">
+            <div class="flex-1">
+                <h2 class="text-lg font-semibold mb-3 border-b border-gray-600 pb-2">Panel de Control</h2>
+                
+                <label for="urls" class="block mb-2 text-sm font-medium text-gray-400">Pega las URLs (una por línea):</label>
+                <textarea id="urls" class="w-full h-40 bg-gray-900 border border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition" placeholder="https://ejemplo.com&#10;https://otra-pagina.dev&#10;https://test.io"></textarea>
+
+                <div class="flex space-x-4 my-4">
+                    <button id="startButton" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        Iniciar Ciclo
+                    </button>
+                    <button id="stopButton" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 flex items-center justify-center" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                        Detener
+                    </button>
+                </div>
+
+                <div id="status-container" class="bg-gray-900/50 p-3 rounded-lg mt-4">
+                    <h3 class="font-semibold text-white mb-2 flex items-center">
+                        <span id="status-indicator" class="status-indicator status-off"></span>
+                        <span id="status-text">Estado: Detenido</span>
+                    </h3>
+                    <p id="current-action" class="text-sm text-gray-400">Esperando para iniciar...</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold mb-3 border-b border-gray-600 pb-2">Estadísticas de Visitas</h3>
+                    <div id="stats" class="text-sm space-y-2 bg-gray-900/50 p-3 rounded-lg h-48 overflow-y-auto">
+                        <p class="text-gray-500">Aún no hay datos.</p>
+                    </div>
+                </div>
+            </div>
+             <div class="text-xs text-gray-500 mt-4 text-center">
+                Versión 1.0
+            </div>
+        </aside>
+
+        <!-- Visor Web (Derecha) -->
+        <main class="flex-1 flex flex-col bg-gray-900">
+            <div class="flex-1 p-4">
+                <iframe id="webview" class="w-full h-full border-2 border-gray-700 rounded-lg bg-black" title="Visor Web"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DOM ELEMENTS ---
+        const urlsTextarea = document.getElementById('urls');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const webview = document.getElementById('webview');
+        const statsDiv = document.getElementById('stats');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const currentAction = document.getElementById('current-action');
+
+        // --- STATE VARIABLES ---
+        let urls = [];
+        let visitCounts = {};
+        let isRunning = false;
+        let mainLoopInterval = null;
+        let interactionTimeout = null;
+
+        // --- CORE FUNCTIONS ---
+
+        /**
+         * Inicia el ciclo de pruebas.
+         * Lee las URLs, resetea el estado y comienza el primer ciclo.
+         */
+        function startTesting() {
+            const rawUrls = urlsTextarea.value.trim().split('\n');
+            urls = rawUrls.filter(url => url.trim() !== '' && (url.startsWith('http://') || url.startsWith('https://')));
+
+            if (urls.length === 0) {
+                alert('Por favor, ingresa al menos una URL válida.');
+                return;
+            }
+
+            isRunning = true;
+            visitCounts = {};
+            urls.forEach(url => { visitCounts[url] = 0; });
+            
+            updateUIForRunningState(true);
+            updateStats();
+            
+            console.log('Ciclo iniciado con las siguientes URLs:', urls);
+            runTestCycle();
+        }
+
+        /**
+         * Detiene el ciclo de pruebas.
+         */
+        function stopTesting() {
+            isRunning = false;
+            clearInterval(mainLoopInterval);
+            clearTimeout(interactionTimeout);
+            mainLoopInterval = null;
+            interactionTimeout = null;
+
+            updateUIForRunningState(false);
+            webview.src = 'about:blank';
+            console.log('Ciclo detenido por el usuario.');
+        }
+
+        /**
+         * Ejecuta un ciclo de prueba: selecciona una URL, la carga y simula interacción.
+         */
+        function runTestCycle() {
+            if (!isRunning) return;
+
+            // 1. Seleccionar una URL al azar
+            const randomUrl = urls[Math.floor(Math.random() * urls.length)];
+            console.log(`Ciclo nuevo. URL seleccionada: ${randomUrl}`);
+
+            // 2. Actualizar conteo y estadísticas
+            visitCounts[randomUrl]++;
+            updateStats();
+            
+            // 3. Cargar la URL en el visor
+            updateStatus('cargando', `Cargando: ${randomUrl}`);
+            webview.src = randomUrl;
+
+            // 4. Esperar a que la página cargue para interactuar
+            webview.onload = () => {
+                if (!isRunning) return;
+                
+                // Duración aleatoria de la interacción (entre 5 y 10 segundos)
+                const interactionTime = Math.floor(Math.random() * 5000) + 5000;
+                updateStatus('activo', `Interactuando en la página por ${interactionTime / 1000}s...`);
+                
+                interactionTimeout = setTimeout(() => {
+                    if (!isRunning) return;
+                    
+                    simulateHumanInteraction();
+
+                    // 5. Programar el siguiente ciclo
+                    const nextCycleDelay = 3000; // 3 segundos de espera entre páginas
+                    updateStatus('inactivo', `Página cerrada. Esperando ${nextCycleDelay / 1000}s para la siguiente...`);
+                    mainLoopInterval = setTimeout(runTestCycle, nextCycleDelay);
+
+                }, interactionTime);
+            };
+            
+            webview.onerror = () => {
+                 if (!isRunning) return;
+                 console.error(`Error al cargar la URL: ${randomUrl}`);
+                 updateStatus('error', `Error al cargar. Saltando a la siguiente...`);
+                 mainLoopInterval = setTimeout(runTestCycle, 3000);
+            }
+        }
+
+        /**
+         * Simula la interacción humana.
+         * En una app real, aquí se inyectaría código para hacer scroll, clic, etc.
+         * Por seguridad del navegador, no podemos controlar el contenido del iframe,
+         * pero aquí demostramos el concepto.
+         */
+        function simulateHumanInteraction() {
+            console.log('--- INICIO DE INTERACCIÓN HUMANA SIMULADA ---');
+            
+            // Las interacciones siempre serán diferentes
+            const actionsCount = Math.floor(Math.random() * 5) + 3; // Entre 3 y 7 acciones
+            console.log(`Realizando ${actionsCount} acciones aleatorias.`);
+
+            for (let i = 0; i < actionsCount; i++) {
+                const actionType = Math.random();
+                if (actionType < 0.6) { // 60% de probabilidad de hacer scroll
+                    const scrollAmount = (Math.random() - 0.5) * 1000;
+                    console.log(`Acción ${i+1}: Simular scroll de ${scrollAmount.toFixed(0)}px.`);
+                } else if (actionType < 0.9) { // 30% de probabilidad de mover el mouse
+                     const x = Math.random() * 100;
+                     const y = Math.random() * 100;
+                     console.log(`Acción ${i+1}: Simular movimiento de mouse a (${x.toFixed(0)}%, ${y.toFixed(0)}%).`);
+                } else { // 10% de probabilidad de hacer clic
+                     console.log(`Acción ${i+1}: Simular un clic en un lugar aleatorio.`);
+                }
+            }
+            
+            console.log('--- FIN DE INTERACCIÓN HUMANA SIMULADA ---');
+        }
+
+
+        // --- UI UPDATE FUNCTIONS ---
+
+        /**
+         * Actualiza la interfaz de usuario según si el bot está corriendo o no.
+         */
+        function updateUIForRunningState(running) {
+            if (running) {
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                urlsTextarea.disabled = true;
+                updateStatus('activo', 'Ciclo en ejecución...');
+            } else {
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                urlsTextarea.disabled = false;
+                updateStatus('detenido', 'Esperando para iniciar...');
+            }
+        }
+        
+        /**
+         * Actualiza el panel de estadísticas.
+         */
+        function updateStats() {
+            statsDiv.innerHTML = '';
+            if (Object.keys(visitCounts).length === 0) {
+                statsDiv.innerHTML = '<p class="text-gray-500">Aún no hay datos.</p>';
+                return;
+            }
+            
+            // Ordenar por la URL para una vista consistente
+            const sortedUrls = Object.keys(visitCounts).sort();
+
+            for (const url of sortedUrls) {
+                const count = visitCounts[url];
+                const statElement = document.createElement('div');
+                statElement.className = 'flex justify-between items-center bg-gray-800 p-2 rounded';
+                statElement.innerHTML = `
+                    <span class="truncate" title="${url}">${url}</span>
+                    <span class="font-bold bg-cyan-800 text-cyan-200 text-xs px-2 py-1 rounded-full">${count}</span>
+                `;
+                statsDiv.appendChild(statElement);
+            }
+        }
+
+        /**
+         * Actualiza el indicador de estado.
+         * @param {'activo'|'inactivo'|'cargando'|'detenido'|'error'} state 
+         * @param {string} message 
+         */
+        function updateStatus(state, message) {
+            statusText.textContent = `Estado: ${state.charAt(0).toUpperCase() + state.slice(1)}`;
+            currentAction.textContent = message;
+            
+            statusIndicator.classList.remove('status-on', 'status-off', 'status-idle', 'status-error');
+            
+            switch(state) {
+                case 'activo':
+                case 'cargando':
+                    statusIndicator.classList.add('status-on');
+                    break;
+                case 'inactivo':
+                    statusIndicator.classList.add('status-idle');
+                    break;
+                case 'detenido':
+                    statusIndicator.classList.add('status-off');
+                    break;
+                case 'error':
+                    statusIndicator.classList.add('bg-orange-500'); // Clase especial para error
+                    break;
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        startButton.addEventListener('click', startTesting);
+        stopButton.addEventListener('click', stopTesting);
+        
+        // Estado inicial de la UI
+        updateUIForRunningState(false);
+    </script>
+</body>
+</html>
 
